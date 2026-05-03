@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CR Drift Detection — MVP</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif;}
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);--text:#e6edf3;--text2:#8b949e;--text3:#484f58;--teal:#028090;--teal2:#02c39a;--red:#f85149;--redbg:rgba(248,81,73,0.1);--green:#3fb950;--greenbg:rgba(63,185,80,0.09);--amber:#d29922;--amberbg:rgba(210,153,34,0.1);--blue:#58a6ff;--r:8px;}
+body{background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+.app{display:flex;width:100%;min-height:100vh;}
+.sb{width:210px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.logo{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.logo-i{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0;}
+.logo-n{font-weight:600;font-size:14px;}
+.logo-s{font-size:10px;color:var(--text3);}
+.nav{padding:10px 8px;flex:1;overflow-y:auto;}
+.nl{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:0 8px;margin:12px 0 4px;}
+.ni{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;color:var(--text2);cursor:pointer;font-size:12.5px;margin-bottom:2px;transition:all .12s;border:1px solid transparent;}
+.ni:hover{background:var(--bg3);color:var(--text);}
+.ni.on{background:rgba(2,128,144,.13);color:var(--teal2);border-color:rgba(2,128,144,.25);}
+.nd{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0;}
+.nb{margin-left:auto;background:var(--redbg);color:var(--red);font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;}
+.nb2{margin-left:auto;background:var(--amberbg);color:var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);line-height:1.8;}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;animation:pu 2s infinite;vertical-align:middle;}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.2}}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20;}
+.topbar h1{font-size:15px;font-weight:500;}
+.topbar p{font-size:10px;color:var(--text3);margin-top:2px;}
+.tbar-r{display:flex;gap:8px;align-items:center;}
+.btn{font-size:11.5px;font-weight:500;padding:6px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all .12s;font-family:inherit;}
+.btn:hover{color:var(--text);border-color:rgba(255,255,255,.2);}
+.btn.p{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn.p:hover{background:#016f7c;}
+.btn.r{background:var(--redbg);border-color:rgba(248,81,73,.3);color:var(--red);}
+.btn.g{background:var(--greenbg);border-color:rgba(63,185,80,.3);color:var(--green);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+select{font-size:11.5px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);cursor:pointer;outline:none;font-family:inherit;}
+.tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 24px;background:var(--bg);}
+.tb{font-size:12px;font-weight:500;padding:9px 14px;cursor:pointer;border:none;background:none;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;transition:all .15s;}
+.tb:hover{color:var(--text);}
+.tb.on{color:var(--teal2);border-bottom-color:var(--teal2);}
+.body{flex:1;padding:20px 24px;overflow-y:auto;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+.mc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s;}
+.mc:hover{border-color:var(--border2);}
+.mv{font-size:28px;font-weight:300;margin-top:4px;letter-spacing:-.03em;}
+.ml{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:500;}
+.ms{font-size:10px;color:var(--text3);margin-top:3px;}
+.g2{display:grid;grid-template-columns:240px 1fr;gap:12px;}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;}
+.ph{padding:9px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+.crl{overflow-y:auto;flex:1;}
+.cr{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.cr:last-child{border-bottom:none;}
+.cr:hover{background:var(--bg3);}
+.cr.sel{background:rgba(2,128,144,.07);border-left:2px solid var(--teal);padding-left:12px;}
+.cr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.crid{font-size:11.5px;font-weight:500;font-family:monospace;}
+.crm{font-size:10px;color:var(--text3);margin-bottom:6px;}
+.dbar{height:2px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.df{height:100%;border-radius:2px;}
+.badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;font-family:monospace;}
+.bd{background:var(--redbg);color:var(--red);border:1px solid rgba(248,81,73,.2);}
+.bo{background:var(--greenbg);color:var(--green);border:1px solid rgba(63,185,80,.2);}
+.bp{background:var(--amberbg);color:var(--amber);border:1px solid rgba(210,153,34,.2);}
+.det{flex:1;overflow-y:auto;}
+.dh{padding:14px 16px;border-bottom:1px solid var(--border);}
+.did{font-size:17px;font-weight:500;font-family:monospace;}
+.dds{font-size:12px;color:var(--text2);margin-top:4px;}
+.chips{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;}
+.chip{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);font-family:monospace;}
+.db2{padding:14px 16px;}
+.sec{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;}
+.rtbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;}
+.rtbl th{text-align:left;padding:5px 8px;font-size:9px;color:var(--text3);border-bottom:1px solid var(--border);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-family:monospace;}
+.rtbl td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text);font-family:monospace;}
+.rtbl tr:last-child td{border-bottom:none;}
+.rtbl tr:hover td{background:var(--bg3);}
+.dv{background:var(--redbg);color:var(--red);border:1px solid rgba(248,81,73,.2);border-radius:4px;padding:1px 6px;}
+.ov{color:var(--green);}
+.llmb{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.65;margin-bottom:12px;}
+.llml{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--teal2);font-family:monospace;margin-bottom:6px;}
+.arow{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.tbl-full{width:100%;border-collapse:collapse;font-size:11.5px;}
+.tbl-full th{text-align:left;padding:8px 12px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);font-weight:600;text-transform:uppercase;background:var(--bg3);}
+.tbl-full td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text);}
+.tbl-full tr:hover td{background:var(--bg3);cursor:pointer;}
+.icard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;}
+.icard h3{font-size:13px;font-weight:500;margin-bottom:8px;}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.tag{font-size:10.5px;padding:2px 9px;border-radius:4px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.clbl{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;font-family:monospace;}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;font-family:monospace;font-size:10.5px;color:var(--text);resize:vertical;outline:none;line-height:1.6;}
+textarea:focus{border-color:var(--teal);}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--border2);border-top-color:var(--teal2);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.vbox{padding:11px 14px;border-radius:var(--r);margin-bottom:10px;font-weight:600;font-size:12.5px;}
+.vf{background:var(--redbg);color:var(--red);border:1px solid rgba(248,81,73,.3);}
+.vp{background:var(--greenbg);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+.dc2{background:var(--redbg);border:1px solid rgba(248,81,73,.2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;}
+.cbox{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:14px;font-family:monospace;font-size:10.5px;color:#a5d6ff;line-height:1.7;white-space:pre-wrap;margin-bottom:14px;max-height:240px;overflow-y:auto;}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center;}
+.stat-v{font-size:22px;font-weight:500;}
+.stat-l{font-size:10px;color:var(--text3);margin-top:3px;}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 16px;font-size:12px;color:var(--text);display:none;z-index:999;max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.toast.show{display:block;animation:fi .3s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sb">
+  <div class="logo">
+    <div class="logo-i">D</div>
+    <div><div class="logo-n">DriftGuard</div><div class="logo-s">NCM · SNOW · LLM</div></div>
+  </div>
+  <div class="nav">
+    <div class="nl">Monitor</div>
+    <div class="ni on" id="nav-dashboard" onclick="navTo('dashboard')"><div class="nd"></div>Dashboard</div>
+    <div class="ni" id="nav-allcrs" onclick="navTo('allcrs')"><div class="nd"></div>All CRs<span class="nb">24</span></div>
+    <div class="ni" id="nav-report" onclick="navTo('report')"><div class="nd"></div>Drift Report<span class="nb">5</span></div>
+    <div class="nl">Integrations</div>
+    <div class="ni" id="nav-ncm" onclick="navTo('ncm')"><div class="nd"></div>SolarWinds NCM</div>
+    <div class="ni" id="nav-snow" onclick="navTo('snow')"><div class="nd"></div>ServiceNow</div>
+    <div class="ni" id="nav-llm" onclick="navTo('llm')"><div class="nd"></div>LLM Engine</div>
+    <div class="nl">Actions</div>
+    <div class="ni" id="nav-remediation" onclick="navTo('remediation')"><div class="nd"></div>Remediation CRs<span class="nb2">3</span></div>
+    <div class="ni" id="nav-cab" onclick="navTo('cab')"><div class="nd"></div>CAB Escalations<span class="nb">2</span></div>
+  </div>
+  <div class="sb-foot"><span class="pulse"></span>LLM active<br><span style="margin-left:10px">claude-sonnet-4</span><br><span style="margin-left:10px">Last scan: 8m ago</span></div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div id="page-title"><h1>Dashboard</h1><p>SolarWinds NCM · ServiceNow · Claude LLM · Blueprint v1.0</p></div>
+    <div class="tbar-r">
+      <select onchange="filterCRs(this.value)"><option value="all">All CRs</option><option value="drift">Drift only</option><option value="ok">Compliant</option><option value="pending">Pending</option></select>
+      <button class="btn p" onclick="showTab('live')">▶ Live Scan</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tb on" id="t-dash" onclick="showTab('dash')">Dashboard</button>
+    <button class="tb" id="t-live" onclick="showTab('live')">🔴 Live LLM Scan</button>
+    <button class="tb" id="t-prompt" onclick="showTab('prompt')">Prompt Blueprint</button>
+  </div>
+  <div class="body">
+
+  <!-- DASHBOARD TAB -->
+  <div id="v-dash">
+    <div id="page-dashboard">
+      <div class="metrics">
+        <div class="mc" onclick="navTo('allcrs')"><div class="ml">CRs Scanned</div><div class="mv">24</div><div class="ms">↗ View all</div></div>
+        <div class="mc" onclick="navTo('report')"><div class="ml">Drift Detected</div><div class="mv" style="color:var(--red)">5</div><div class="ms">↗ View report</div></div>
+        <div class="mc" onclick="filterCRs('ok')"><div class="ml">Compliant</div><div class="mv" style="color:var(--green)">17</div><div class="ms">↗ Filter</div></div>
+        <div class="mc" onclick="filterCRs('pending')"><div class="ml">Pending</div><div class="mv" style="color:var(--amber)">2</div><div class="ms">↗ Filter</div></div>
+      </div>
+      <div class="g2">
+        <div class="panel"><div class="ph">Change Requests</div><div class="crl" id="crlist"></div></div>
+        <div class="panel"><div class="det" id="detail"></div></div>
+      </div>
+    </div>
+    <div id="page-allcrs" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:500">All Change Requests <span style="font-size:11px;color:var(--text3);font-weight:400">(24 total)</span></div>
+        <div style="display:flex;gap:8px;"><button class="btn" onclick="showToast('Exporting to CSV...')">Export CSV</button><button class="btn p" onclick="showTab('live')">Run New Scan</button></div>
+      </div>
+      <div class="panel"><table class="tbl-full"><thead><tr><th>CR Number</th><th>Firewall</th><th>Description</th><th>Vendor</th><th>Date</th><th>Status</th><th>Risk</th><th>Rec</th></tr></thead><tbody id="all-cr-table"></tbody></table></div>
+    </div>
+    <div id="page-report" style="display:none">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">Drift Report — Last 30 days</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-v" style="color:var(--red)">5</div><div class="stat-l">CRs with drift</div></div>
+        <div class="stat"><div class="stat-v" style="color:var(--red)">2</div><div class="stat-l">CRITICAL risk</div></div>
+        <div class="stat"><div class="stat-v" style="color:var(--amber)">3</div><div class="stat-l">MEDIUM / HIGH</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:12px;">
+        <div class="ph">Drift detections requiring action</div>
+        <div style="padding:14px 16px;" id="report-list"></div>
+      </div>
+      <div class="arow"><button class="btn p" onclick="showToast('Generating PDF drift report...')">Export PDF Report</button><button class="btn" onclick="showToast('Sending report to manager via email...')">Email to Manager</button></div>
+    </div>
+    <div id="page-ncm" style="display:none">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">SolarWinds NCM — Integration</div>
+      <div class="icard"><h3>Connection Status</h3><div class="tag-row"><span class="tag" style="color:var(--green);background:var(--greenbg)">✓ Connected</span><span class="tag">REST API v2</span><span class="tag">Read-only</span></div><div style="font-size:11.5px;color:var(--text2);line-height:1.7">Endpoint: https://ncm.company.com/api/v2/configs/diff<br>Auth: API key stored in vault · Last sync: 8 minutes ago</div></div>
+      <div class="icard"><h3>How it works</h3><div style="font-size:12px;color:var(--text2);line-height:1.7">NCM captures a <strong style="color:var(--text)">pre-snapshot</strong> before the change window opens and a <strong style="color:var(--text)">post-snapshot</strong> after it closes. The config diff is pulled via REST API and fed to the LLM engine for comparison against the CR spec.</div></div>
+      <div class="icard"><h3>Monitored Devices</h3><div class="tag-row"><span class="tag">FW-PROD-01 (Palo Alto)</span><span class="tag">FW-DMZ-02 (Checkpoint)</span><span class="tag">FW-CORP-03 (Fortinet)</span><span class="tag">FW-DMZ-01 (Checkpoint)</span></div></div>
+      <div class="arow"><button class="btn p" onclick="showToast('Pulling latest config diff from NCM...')">Pull Config Now</button><button class="btn" onclick="showToast('Opening NCM API docs...')">API Docs</button></div>
+    </div>
+    <div id="page-snow" style="display:none">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">ServiceNow — Integration</div>
+      <div class="icard"><h3>Connection Status</h3><div class="tag-row"><span class="tag" style="color:var(--green);background:var(--greenbg)">✓ Connected</span><span class="tag">Table API</span><span class="tag">Read + Write</span></div><div style="font-size:11.5px;color:var(--text2)">Instance: company.service-now.com · Table: change_request · Trigger: CR state → Review</div></div>
+      <div class="icard"><h3>What gets pulled</h3><div style="font-size:12px;color:var(--text2);line-height:1.7">When CR state moves to <strong style="color:var(--text)">Review</strong>, the Table API pulls CR fields — source IP, destination, port, zone, action, logging requirements, and implementation steps. This becomes the authoritative approved spec.</div></div>
+      <div class="icard"><h3>What gets written back</h3><div style="font-size:12px;color:var(--text2);line-height:1.7">After LLM analysis, the drift verdict is written back as a <strong style="color:var(--text)">CR work note</strong>. If drift is detected, a <strong style="color:var(--text)">remediation CR is raised automatically</strong>.</div></div>
+      <div class="arow"><button class="btn p" onclick="showToast('Testing ServiceNow connection...')">Test Connection</button><button class="btn" onclick="showToast('Opening ServiceNow Table API docs...')">API Docs</button></div>
+    </div>
+    <div id="page-llm" style="display:none">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">LLM Engine — Configuration</div>
+      <div class="icard"><h3>Active Model</h3><div class="tag-row"><span class="tag" style="color:var(--green);background:var(--greenbg)">✓ claude-sonnet-4-20250514</span><span class="tag">~3 sec / scan</span><span class="tag">~$0.002 / scan</span></div><div style="font-size:11.5px;color:var(--text2)">Also compatible: gpt-4o · mistral-large · llama-3-70b · any OpenAI-compatible endpoint</div></div>
+      <div class="icard"><h3>Scan Statistics</h3><div class="tag-row"><span class="tag">24 scans this month</span><span class="tag">5 drifts caught</span><span class="tag">Avg: 2.9 sec</span><span class="tag">Total cost: $0.048</span></div></div>
+      <div class="arow"><button class="btn p" onclick="showTab('live')">Run Live Scan</button><button class="btn" onclick="showTab('prompt')">View Prompt →</button></div>
+    </div>
+    <div id="page-remediation" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:500">Remediation CRs <span style="font-size:11px;color:var(--text3);font-weight:400">(auto-raised)</span></div>
+        <button class="btn p" onclick="showToast('Raising new remediation CR in ServiceNow...')">+ New Remediation CR</button>
+      </div>
+      <div id="rem-list"></div>
+    </div>
+    <div id="page-cab" style="display:none">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">CAB Escalations — Critical drift alerts</div>
+      <div id="cab-list"></div>
+    </div>
+  </div>
+
+  <!-- LIVE SCAN TAB -->
+  <div id="v-live" style="display:none">
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px">Paste a CR spec and NCM config diff — the LLM engine analyses and returns a structured drift report.</div>
+    <div class="sg">
+      <div><div class="clbl">CR Spec (ServiceNow / Excel)</div><textarea id="cr-in" rows="13"></textarea></div>
+      <div><div class="clbl">Actual Config (SolarWinds NCM diff)</div><textarea id="cfg-in" rows="13"></textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+      <button class="btn p" id="run-btn" onclick="runScan()">▶ Run Drift Analysis</button>
+      <button class="btn" onclick="loadSample()">Load sample data</button>
+      <span id="smsg" style="font-size:11px;color:var(--text3);font-family:monospace;"></span>
+    </div>
+    <div id="sresult"></div>
+  </div>
+
+  <!-- PROMPT TAB -->
+  <div id="v-prompt" style="display:none">
+    <div class="sec" style="margin-bottom:10px">System prompt — Claude · GPT-4o · Mistral · LLaMA · any model</div>
+    <div class="cbox">You are a senior network security compliance auditor.
+Compare the approved CR spec vs the actual firewall
+config captured by SolarWinds NCM post-change.
+
+TASKS:
+1. Parse both inputs — ignore vendor format differences
+2. Compare every field: src IP, dst IP, zones,
+   protocol, port, action, logging, schedule
+3. Flag every deviation as DRIFT
+4. Rate severity: CRITICAL / HIGH / MEDIUM / LOW
+5. Return PASS or FAIL verdict + remediation steps
+
+SEVERITY GUIDE:
+CRITICAL  IP broader than approved (/24 → /16)
+HIGH      Wrong zone pair, missing deny rule
+MEDIUM    Logging disabled, extra ports added
+LOW       Rule name, description, order change
+
+OUTPUT — valid JSON only, no markdown, no preamble:
+{
+  "verdict": "PASS|FAIL",
+  "drift_count": 0,
+  "drifts": [{
+    "field": "Source IP",
+    "approved": "10.20.0.0/24",
+    "actual":   "10.20.0.0/16",
+    "severity": "CRITICAL",
+    "impact":   "Exposes 65,536 hosts vs 256",
+    "remediation": "Narrow mask to /24 immediately"
+  }],
+  "overall_risk": "CRITICAL|HIGH|MEDIUM|LOW|NONE",
+  "summary": "Plain-English manager summary",
+  "recommendation": "ROLLBACK|PARTIAL_FIX|ACCEPT"
+}</div>
+    <div class="sec" style="margin-bottom:10px">Orchestrator API call</div>
+    <div class="cbox">const res = await fetch(
+  "https://api.anthropic.com/v1/messages", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1500,
+    system: SYSTEM_PROMPT,
+    messages: [{
+      role: "user",
+      content: buildPrompt(crSpec, ncmDiff)
+    }]
+  })
+});
+const report = JSON.parse(
+  (await res.json()).content[0].text
+);
+// FAIL → write verdict to ServiceNow CR work note
+// CRITICAL → trigger CAB escalation workflow</div>
+    <div style="background:var(--amberbg);border:1px solid rgba(210,153,34,.3);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber);">
+      ⚡ ~$0.002 per scan · ~3 sec response · Supports Palo Alto · Checkpoint · Fortinet · Cisco ASA · any CLI format
+    </div>
+  </div>
+
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CRS=[
+  {id:'CHG0012847',fw:'FW-PROD-01',dt:'18 Apr 2026',st:'drift',vendor:'Palo Alto',desc:'Allow HTTPS from app subnet to payment gateway',tags:['ServiceNow','Palo Alto','Production'],pct:65,
+   rules:[{f:'Source IP',cr:'10.20.0.0/24',ac:'10.20.0.0/16',d:true,s:'CRITICAL'},{f:'Dest Zone',cr:'UNTRUST',ac:'DMZ',d:true,s:'HIGH'},{f:'Log',cr:'Enabled',ac:'Disabled',d:true,s:'MEDIUM'},{f:'Dest IP',cr:'192.168.50.10',ac:'192.168.50.10',d:false},{f:'Port',cr:'443',ac:'443',d:false},{f:'Action',cr:'Allow',ac:'Allow',d:false}],
+   llm:'3 deviations detected. Source IP /16 exposes 65,536 hosts vs approved 256 (CRITICAL). Zone set to DMZ instead of UNTRUST — bypasses perimeter inspection (HIGH). Logging disabled — removes audit trail (MEDIUM). Immediate rollback recommended.',rec:'ROLLBACK',risk:'CRITICAL'},
+  {id:'CHG0012831',fw:'FW-DMZ-02',dt:'16 Apr 2026',st:'drift',vendor:'Checkpoint',desc:'Block outbound SSH from DMZ to internet',tags:['ServiceNow','Checkpoint','DMZ'],pct:35,
+   rules:[{f:'Port',cr:'22',ac:'22, 2222',d:true,s:'MEDIUM'},{f:'Log',cr:'Enabled',ac:'Disabled',d:true,s:'MEDIUM'},{f:'Source IP',cr:'172.16.10.0/24',ac:'172.16.10.0/24',d:false},{f:'Action',cr:'Drop',ac:'Drop',d:false}],
+   llm:'2 deviations. Port 2222 added — not in CR spec (MEDIUM). Logging disabled — violates audit policy (MEDIUM). Core block action correct. Partial fix needed.',rec:'PARTIAL_FIX',risk:'MEDIUM'},
+  {id:'CHG0012820',fw:'FW-PROD-01',dt:'14 Apr 2026',st:'ok',vendor:'Palo Alto',desc:'Allow app tier to DB tier on port 5432',tags:['ServiceNow','Palo Alto','Production'],pct:0,
+   rules:[{f:'Source IP',cr:'10.10.2.0/24',ac:'10.10.2.0/24',d:false},{f:'Dest IP',cr:'10.10.3.0/24',ac:'10.10.3.0/24',d:false},{f:'Port',cr:'5432',ac:'5432',d:false},{f:'Action',cr:'Allow',ac:'Allow',d:false},{f:'Log',cr:'Enabled',ac:'Enabled',d:false}],
+   llm:'All fields match CR spec exactly. Implementation fully compliant. No action required.',rec:'ACCEPT',risk:'NONE'},
+  {id:'CHG0012815',fw:'FW-CORP-03',dt:'12 Apr 2026',st:'pending',vendor:'Fortinet',desc:'Allow RDP from VPN subnet to jump servers',tags:['Excel CR','Fortinet','Corporate'],pct:0,rules:[],
+   llm:'NCM post-change snapshot not yet available. Scan will run automatically when CR state moves to Review.',rec:'PENDING',risk:'—'},
+  {id:'CHG0012800',fw:'FW-DMZ-02',dt:'10 Apr 2026',st:'ok',vendor:'Checkpoint',desc:'Block inbound Telnet port 23 from external',tags:['ServiceNow','Checkpoint','DMZ'],pct:0,
+   rules:[{f:'Source IP',cr:'Any',ac:'Any',d:false},{f:'Port',cr:'23',ac:'23',d:false},{f:'Action',cr:'Drop',ac:'Drop',d:false},{f:'Log',cr:'Enabled',ac:'Enabled',d:false}],
+   llm:'Full compliance confirmed. All fields match approved CR specification.',rec:'ACCEPT',risk:'NONE'},
+];
+const SC={CRITICAL:'var(--red)',HIGH:'#f97316',MEDIUM:'var(--amber)',LOW:'var(--blue)'};
+const RC={ROLLBACK:'var(--red)',PARTIAL_FIX:'var(--amber)',ACCEPT:'var(--green)',PENDING:'var(--text3)'};
+let sel=0,flt='all';
+function bdg(s){const m={drift:'bd',ok:'bo',pending:'bp'},l={drift:'Drift',ok:'Compliant',pending:'Pending'};return`<span class="badge ${m[s]}">${l[s]}</span>`;}
+function renderList(){
+  const f=CRS.filter(c=>flt==='all'||c.st===flt);
+  document.getElementById('crlist').innerHTML=f.length?f.map(c=>{const i=CRS.indexOf(c);const dc=c.st==='drift'?'var(--red)':c.st==='pending'?'var(--amber)':'var(--green)';return`<div class="cr${sel===i?' sel':''}" onclick="pick(${i})"><div class="cr-top"><span class="crid">${c.id}</span>${bdg(c.st)}</div><div class="crm">${c.fw} · ${c.dt}</div><div class="dbar"><div class="df" style="width:${c.pct}%;background:${dc}"></div></div></div>`;}).join(''):`<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">No CRs match filter</div>`;
+}
+function renderDetail(){
+  const c=CRS[sel];
+  let tbl=c.rules.length?`<table class="rtbl"><thead><tr><th>Field</th><th>CR Approved</th><th>NCM Actual</th><th>Severity</th><th>Status</th></tr></thead><tbody>${c.rules.map(r=>`<tr><td style="color:var(--text3)">${r.f}</td><td>${r.cr}</td><td>${r.d?`<span class="dv">${r.ac}</span>`:r.ac}</td><td>${r.d?`<span style="font-size:9px;font-weight:700;color:${SC[r.s]||'var(--text3)'}">${r.s}</span>`:'—'}</td><td>${r.d?bdg('drift'):`<span class="ov" style="font-size:10px">✓ match</span>`}</td></tr>`).join('')}</tbody></table>`:`<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">⏳ Awaiting NCM snapshot</div>`;
+  const acts=c.st==='drift'?`<div class="arow"><button class="btn p" onclick="showToast('Raising remediation CR for ${c.id} in ServiceNow...')">→ Raise Remediation CR</button><button class="btn r" onclick="showToast('Escalating ${c.id} to CAB...')">→ Escalate to CAB</button><button class="btn" onclick="showTab('live')">→ Re-run Scan</button></div>`:'';
+  document.getElementById('detail').innerHTML=`<div class="dh"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;"><div class="did">${c.id}</div><div style="display:flex;gap:5px;align-items:center;">${bdg(c.st)}<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--bg3);color:${RC[c.rec]||'var(--text3)'};border:1px solid var(--border2)">${c.rec}</span></div></div><div class="dds">${c.desc}</div><div class="chips">${c.tags.map(t=>`<span class="chip">${t}</span>`).join('')}<span class="chip">${c.vendor}</span></div></div><div class="db2"><div class="sec">Rule comparison — CR spec vs NCM actual</div>${tbl}<div class="sec">LLM analysis — claude-sonnet-4</div><div class="llmb"><div class="llml">● Claude response</div>${c.llm}</div>${acts}</div>`;
+}
+function pick(i){sel=i;renderList();renderDetail();}
+function filterCRs(v){flt=v;document.querySelector('select').value=v;navTo('dashboard');renderList();}
+function renderAllCRs(){document.getElementById('all-cr-table').innerHTML=CRS.map(c=>`<tr onclick="pick(${CRS.indexOf(c)});navTo('dashboard')"><td style="font-weight:500;font-family:monospace">${c.id}</td><td>${c.fw}</td><td>${c.desc}</td><td>${c.vendor}</td><td>${c.dt}</td><td>${bdg(c.st)}</td><td style="font-size:9.5px;font-weight:700;color:${SC[c.risk]||'var(--text3)'}">${c.risk}</td><td style="font-size:9.5px;font-weight:700;color:${RC[c.rec]||'var(--text3)'}">${c.rec}</td></tr>`).join('');}
+function renderReport(){document.getElementById('report-list').innerHTML=[{id:'CHG0012847',fw:'FW-PROD-01',risk:'CRITICAL',drifts:3,rec:'ROLLBACK',desc:'Source IP /16, Wrong zone, Logging off'},{id:'CHG0012831',fw:'FW-DMZ-02',risk:'MEDIUM',drifts:2,rec:'PARTIAL_FIX',desc:'Port 2222 added, Logging off'},{id:'CHG0012775',fw:'FW-DMZ-01',risk:'HIGH',drifts:2,rec:'ROLLBACK',desc:'Wrong zone pair, Logging off'}].map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:12px;font-weight:500">${r.id} <span style="font-weight:400;color:var(--text3)">· ${r.fw}</span></div><div style="font-size:10.5px;color:var(--text3);margin-top:3px">${r.desc}</div></div><div style="display:flex;gap:8px;align-items:center;"><span style="font-size:9.5px;font-weight:700;color:${SC[r.risk]||'var(--text3)'}">${r.risk}</span><button class="btn r" style="font-size:10.5px;padding:4px 10px;" onclick="showToast('${r.rec} initiated for ${r.id}...')">${r.rec}</button></div></div>`).join('');}
+function renderRemediation(){document.getElementById('rem-list').innerHTML=[{id:'REM-0012847',orig:'CHG0012847',fw:'FW-PROD-01',desc:'Narrow Source IP /16→/24, correct zone to UNTRUST, re-enable logging',status:'In Progress',pri:'Critical'},{id:'REM-0012831',orig:'CHG0012831',fw:'FW-DMZ-02',desc:'Remove port 2222 from rule, re-enable logging',status:'Assigned',pri:'Medium'},{id:'REM-0012775',orig:'CHG0012775',fw:'FW-DMZ-01',desc:'Correct zone pair and re-enable logging',status:'Pending',pri:'High'}].map(r=>`<div class="icard"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><div><div style="font-size:12.5px;font-weight:500">${r.id} <span style="font-size:10px;color:var(--text3)">← ${r.orig}</span></div><div style="font-size:11px;color:var(--text2);margin-top:3px">${r.fw} · ${r.desc}</div></div><div style="display:flex;gap:5px;align-items:center;flex-shrink:0;margin-left:8px;"><span style="font-size:9px;font-weight:700;color:${r.pri==='Critical'?'var(--red)':r.pri==='High'?'#f97316':'var(--amber)'}">${r.pri}</span>${bdg(r.status==='In Progress'?'drift':r.status==='Assigned'?'pending':'ok')}</div></div><div class="arow"><button class="btn" style="font-size:10.5px;padding:4px 10px;" onclick="showToast('Assigning ${r.id} to network team...')">Assign</button><button class="btn g" style="font-size:10.5px;padding:4px 10px;" onclick="showToast('${r.id} marked complete!')">Mark Complete</button></div></div>`).join('');}
+function renderCAB(){document.getElementById('cab-list').innerHTML=[{id:'CHG0012847',fw:'FW-PROD-01',risk:'CRITICAL',raised:'19 Apr 2026 23:10',status:'Open',desc:'Source IP /16 vs approved /24 — 65,536 host exposure'},{id:'CHG0012775',fw:'FW-DMZ-01',risk:'HIGH',raised:'06 Apr 2026 00:35',status:'Reviewing',desc:'Wrong zone pair — perimeter inspection bypass'}].map(e=>`<div class="icard" style="border-left:3px solid var(--red);padding-left:14px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><div><div style="font-size:12.5px;font-weight:500">${e.id} — ${e.fw}</div><div style="font-size:11px;color:var(--text2);margin-top:3px">${e.desc}</div><div style="font-size:10px;color:var(--text3);margin-top:4px">Raised: ${e.raised} · Status: ${e.status}</div></div><span style="font-size:9.5px;font-weight:700;color:${e.risk==='CRITICAL'?'var(--red)':'#f97316'}">${e.risk}</span></div><div class="arow"><button class="btn r" style="font-size:10.5px;padding:4px 10px;" onclick="showToast('CAB escalation email sent for ${e.id}...')">Send to CAB</button><button class="btn" style="font-size:10.5px;padding:4px 10px;" onclick="showToast('Emergency review scheduled...')">Schedule Review</button><button class="btn g" style="font-size:10.5px;padding:4px 10px;" onclick="showToast('${e.id} resolved!')">Resolve</button></div></div>`).join('');}
+const pages=['dashboard','allcrs','report','ncm','snow','llm','remediation','cab'];
+const ptitles={dashboard:'Dashboard',allcrs:'All Change Requests',report:'Drift Report',ncm:'SolarWinds NCM',snow:'ServiceNow',llm:'LLM Engine',remediation:'Remediation CRs',cab:'CAB Escalations'};
+function navTo(page){
+  pages.forEach(p=>{const el=document.getElementById('page-'+p);if(el)el.style.display=p===page?'':'none';const ni=document.getElementById('nav-'+p);if(ni)ni.classList.toggle('on',p===page);});
+  document.getElementById('page-title').innerHTML=`<h1>${ptitles[page]||page}</h1><p>SolarWinds NCM · ServiceNow · Claude LLM · Blueprint v1.0</p>`;
+  if(page==='allcrs')renderAllCRs();
+  if(page==='report')renderReport();
+  if(page==='remediation')renderRemediation();
+  if(page==='cab')renderCAB();
+}
+function showTab(t){['dash','live','prompt'].forEach(id=>{document.getElementById('v-'+id).style.display=id===t?'':'none';document.getElementById('t-'+id).classList.toggle('on',id===t);});if(t==='live')loadSample();}
+let toastT;
+function showToast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2500);}
+function loadSample(){document.getElementById('cr-in').value='CR: CHG0012847\nFirewall: FW-PROD-01 (Palo Alto)\n\nApproved Rule:\n  Source Zone: TRUST\n  Source IP: 10.20.0.0/24\n  Dest Zone: UNTRUST\n  Dest IP: 192.168.50.10\n  Port: 443\n  Action: Allow\n  Log: Enabled';document.getElementById('cfg-in').value='== NCM Diff ==\nDevice: FW-PROD-01\nCaptured: 19-Apr-2026 23:05\n\n+ rule "Allow-PayGW-HTTPS" {\n+   src-zone: TRUST\n+   src-ip: 10.20.0.0/16  <- was /24\n+   dst-zone: DMZ         <- was UNTRUST\n+   dst-ip: 192.168.50.10\n+   service: tcp/443\n+   action: allow\n+   log: no               <- was Enabled\n+ }';}
+function runScan(){
+  const btn=document.getElementById('run-btn'),msg=document.getElementById('smsg');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Analysing...';
+  const steps=['Calling ServiceNow API...','Parsing NCM diff...','Building prompt...','Sending to Claude...','Processing...','Generating report...'];
+  let i=0;const iv=setInterval(()=>{if(i<steps.length)msg.textContent=steps[i++];else clearInterval(iv);},420);
+  setTimeout(()=>{
+    clearInterval(iv);msg.textContent='✓ Complete';btn.disabled=false;btn.innerHTML='▶ Run Drift Analysis';
+    document.getElementById('sresult').innerHTML=`<div class="vbox vf">✗ FAIL — 3 deviations · Risk: CRITICAL · Recommendation: ROLLBACK</div>${[{f:'Source IP',a:'10.20.0.0/24',b:'10.20.0.0/16',s:'CRITICAL',imp:'Exposes 65,536 hosts vs approved 256',fix:'Narrow mask to /24 immediately'},{f:'Dest Zone',a:'UNTRUST',b:'DMZ',s:'HIGH',imp:'Bypasses perimeter inspection policy',fix:'Correct zone to TRUST → UNTRUST'},{f:'Log',a:'Enabled',b:'Disabled',s:'MEDIUM',imp:'Audit trail removed — compliance violation',fix:'Re-enable logging on the rule'}].map(d=>`<div class="dc2"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><strong style="color:var(--text);font-size:12px">${d.f}</strong><span style="font-size:9.5px;font-weight:700;color:${SC[d.s]}">${d.s}</span></div><div style="font-family:monospace;font-size:11px;margin-bottom:5px;color:var(--text2)">Approved: ${d.a} → Actual: ${d.b}</div><div style="font-size:12px;color:var(--text2)">Impact: ${d.imp}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Fix: ${d.fix}</div></div>`).join('')}<div class="llmb" style="margin-top:12px"><div class="llml">● Claude summary (for manager)</div>Three deviations from approved CR. Source IP broadened /24→/16 expanding attack surface significantly. Destination zone set to DMZ instead of UNTRUST, bypassing perimeter inspection. Logging disabled removing the audit trail. Immediate rollback recommended.</div><div class="arow"><button class="btn p" onclick="showToast('Raising remediation CR in ServiceNow...')">→ Raise Remediation CR</button><button class="btn r" onclick="showToast('CAB escalation triggered...')">→ Escalate to CAB</button></div>`;
+  },2700);
+}
+renderList();renderDetail();
+</script>
+</body>
+</html>
